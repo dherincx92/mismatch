@@ -3,46 +3,91 @@ import json
 import logging
 import os
 import pickle
+import random
 import requests
 
 logging.basicConfig(level='INFO')
 logger = logging.getLogger(__name__)
 
 from bs4 import BeautifulSoup
-from selenium import webdriver
+from itertools import cycle
 
 from src.constants import (
     ALI_BASE,
     ALI_SEARCH
 )
+from src.aliexpress.destroyer import (
+    get_proxies
+)
 
+
+def get_products_json(soup):
+
+    import ipdb; ipdb.set_trace()
 
 
 def run(args_dict):
 
     cookies_fp = args_dict['cookies']
-    driver = webdriver.Chrome(os.path.realpath('chromedriver'))
-    driver.get("https://aliexpress.com")
     cookies = pickle.load(open(cookies_fp, "rb"))
+
+    # See cookies.py to generate login cookie pickle.
+    session = requests.Session()
     for cookie in cookies:
         try: del cookie['expiry']
         except KeyError: pass
-        driver.add_cookie(cookie)
+        try: del cookie['httpOnly']
+        except KeyError: pass
+        session.cookies.set(**cookie)
 
-    logger.info(f'ADDED LOGIN COOKIES TO SELENIUM:')
+    logger.info(f'ADDED LOGIN COOKIES TO REQUEST SESSION')
 
     product = args_dict['query']
     url = f"{ALI_BASE}{ALI_SEARCH}{product}"
 
-    logger.info(f'CREATED URL: {url}')
+    logger.info(f'BUILD ALIEXPRESS URL: {url}')
 
-    driver.get(url)
+    proxies = get_proxies()
+    proxy_pool = cycle(proxies)
 
-    content = driver.page_source
+    # five tries
+    for i in range(0, 5):
+        proxy = next(proxy_pool)
+        response = requests.get(
+            url,
+            proxies={
+                "http": proxy,
+                "https": proxy
+            }
+        )
+        import ipdb; ipdb.set_trace()
+
+    logger.info(f'ALIEXPRESS REQUEST STATUS: {resp.status_code}')
+
+    # driver = webdriver.Chrome(os.path.realpath('chromedriver'))
+    # driver.get("https://aliexpress.com")
+    # cookies = pickle.load(open(cookies_fp, "rb"))
+    # for cookie in cookies:
+    #     try: del cookie['expiry']
+    #     except KeyError: pass
+    #     driver.add_cookie(cookie)
+
+    # logger.info(f'ADDED LOGIN COOKIES TO SELENIUM:')
+
+    # product = args_dict['query']
+    # url = f"{ALI_BASE}{ALI_SEARCH}{product}"
+
+    # logger.info(f'CREATED URL: {url}')
+
+    # driver.get(url)
+
+    # content = driver.page_source
 
     # logger.info(f'REQUEST STATUS: {req.status_code}')
 
-    soup = BeautifulSoup(content, 'html.parser')
+    soup = BeautifulSoup(resp.content, 'html.parser')
+
+    get_products_json(soup)
 
     import ipdb; ipdb.set_trace()
 
